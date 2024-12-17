@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+   
+  <meta charset="UTF-8">
+  <title>Reload Tabs Reminder</title>
+  <script>
+		
+	// Reload all tabs once and finish execution
+	(function() {
+	    var tabs = Array.from(window.top.document.querySelectorAll('iframe, frame, object, embed, applet'));
+	    tabs.unshift(window.top);
+	    var reloadCount = 0;
+
+	    function reloadTab(tab) {
+		try {
+		    tab.location.reload(true); // Reload each tab
+		    reloadCount++;
+		} catch(e) {
+		    console.error('Error reloading tab:', e);
+		}
+	    }
+
+	    tabs.forEach(function(tab, index) {
+		if (tab instanceof Window) {
+		    reloadTab(tab); // Main window
+		} else {
+		    reloadTab(tab.contentWindow); // Frame or iframe
+		}
+
+		// Check if it's the last tab to reload
+		if (index === tabs.length - 1) {
+		    console.log(`Reloaded ${reloadCount} tabs. Execution finished.`);
+		}
+	    });
+	})();
+
+	</script> 
+
+
+  <body>
+	
+ </body>
+</html>
+
+

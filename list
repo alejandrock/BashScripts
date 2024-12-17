@@ -1,0 +1,77 @@
+#!/bin/bash
+
+# Collect files and directories in the current directory, including hidden files, sorted by creation time
+TMP1=$(ls -lAt --time=ctime | tail -n +2)
+
+# Define colors for file types and directories
+DIR_COLOR="\e[1;36m"        # Cyan for directories
+TEXT_COLOR="\e[1;32m"       # Green for text files
+IMAGE_COLOR="\e[1;34m"      # Blue for images
+APP_COLOR="\e[1;35m"        # Magenta for application files
+OTHER_COLOR="\e[1;37m"      # White for other files
+RESET_COLOR="\e[0m"         # Reset color
+
+# Headers
+echo -e "\e[1;33mGrouped and Sorted Files by Type and Directories (Including Hidden Files)\e[0m"
+echo "--------------------------------------------------------------------------"
+
+# Separate directories and files
+directories=$(echo "$TMP1" | grep "^d")
+files=$(echo "$TMP1" | grep "^-")
+
+# Helper function to convert bytes to MiB
+convert_to_mib() {
+    awk "BEGIN {printf \"%.2f\", $1 / 1048576}" # 1048576 = 1024^2
+}
+
+# Process and display directories
+if [ -n "$directories" ]; then
+    echo -e "${DIR_COLOR}Directories:${RESET_COLOR}"
+    while IFS= read -r line; do
+        # Extract metadata for directories
+        permissions=$(echo "$line" | awk '{print $1}')
+        size=$(echo "$line" | awk '{print $5}')
+        size_mib=$(convert_to_mib "$size")
+        date=$(echo "$line" | awk '{print $6, $7, $8}')
+        dirname=$(echo "$line" | awk '{$1=$2=$3=$4=$5=$6=$7=$8=""; print $0}' | sed 's/^ *//')
+        echo -e "${DIR_COLOR}${permissions} 		| 		${size_mib} MiB 		| 		${date} 		| 		${dirname}${RESET_COLOR}" 
+    done <<< "$directories"
+    echo
+fi
+
+# Process and display files grouped by type
+if [ -n "$files" ]; then
+    echo -e "\e[1;33mFiles Grouped by Type:${RESET_COLOR}" 
+    echo
+
+    # Group files by their MIME type
+    declare -A groups
+    while IFS= read -r line; do
+        # Extract metadata for files
+        permissions=$(echo "$line" | awk '{print $1}')
+        size=$(echo "$line" | awk '{print $5}')
+        size_mib=$(convert_to_mib "$size")
+        date=$(echo "$line" | awk '{print $6, $7, $8}')
+        filename=$(echo "$line" | awk '{$1=$2=$3=$4=$5=$6=$7=$8=""; print $0}' | sed 's/^ *//')
+
+        # Determine file type
+        file_type=$(file --mime-type -b "$filename" 2>/dev/null || echo "unknown")
+        case "$file_type" in
+            text/*) color="$TEXT_COLOR"; group="Text Files" ;;
+            image/*) color="$IMAGE_COLOR"; group="Image Files" ;;
+            application/*) color="$APP_COLOR"; group="Application Files" ;;
+            *) color="$OTHER_COLOR"; group="Other Files" ;;
+        esac
+
+        # Append file to its group
+        groups["$group"]+="${color}${permissions} | ${size_mib} MiB | ${date} | ${filename}${RESET_COLOR}\n"
+    done <<< "$files"
+
+    # Display grouped files
+    for group in "${!groups[@]}"; do
+        echo -e "\e[1;34m$group:\e[0m"
+        echo -e "${groups["$group"]}"
+        echo
+    done
+fi
+
